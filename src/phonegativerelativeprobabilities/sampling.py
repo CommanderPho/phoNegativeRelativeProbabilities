@@ -67,19 +67,24 @@ def repeat_sample_from_bag(
     n_repeats: int = 1000,
     n_sequential_samples: int = 25,
     ball_observation_error: float = 0.01,
-) -> list[list[str]]:
+) -> tuple[list[list[str]], list[dict[str, int]]]:
     """Independently sample from the same bag ``n_repeats`` times without replacement.
 
     Uses vectorized numpy permutations so each repeat is an independent draw of
     ``min(n_sequential_samples, len(bag))`` balls, then optional observation flips.
+
+    Returns:
+        samples: list of length ``n_repeats``, each an observed color sequence
+        color_counts: per-repeat tallies ``{'orange': int, 'white': int}``
     """
     if n_repeats < 1:
-        return []
+        return [], []
 
     bag_arr = np.asarray(bag_of_balls, dtype=object)
     n_bag = bag_arr.size
     if n_bag == 0:
-        return [[] for _ in range(n_repeats)]
+        empty_counts = [{"orange": 0, "white": 0} for _ in range(n_repeats)]
+        return [[] for _ in range(n_repeats)], empty_counts
 
     n_samples = min(n_sequential_samples, n_bag)
     # Random permutation per repeat via argsort of uniform noise; take first n_samples
@@ -91,7 +96,13 @@ def repeat_sample_from_bag(
         flipped = np.where(sampled == "orange", "white", "orange")
         sampled = np.where(flip, flipped, sampled)
 
-    return sampled.tolist()
+    n_orange = (sampled == "orange").sum(axis=1)
+    n_white = (sampled == "white").sum(axis=1)
+    color_counts = [
+        {"orange": int(o), "white": int(w)} for o, w in zip(n_orange, n_white)
+    ]
+
+    return sampled.tolist(), color_counts
 
 
 def observation_string_to_bag(obs_seq: str) -> list[str]:
