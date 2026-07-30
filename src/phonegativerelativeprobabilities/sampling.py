@@ -62,6 +62,38 @@ def sample_from_bag(bag_of_balls: list[str], n_sequential_samples: int = 25, bal
     return samples
 
 
+def repeat_sample_from_bag(
+    bag_of_balls: list[str],
+    n_repeats: int = 1000,
+    n_sequential_samples: int = 25,
+    ball_observation_error: float = 0.01,
+) -> list[list[str]]:
+    """Independently sample from the same bag ``n_repeats`` times without replacement.
+
+    Uses vectorized numpy permutations so each repeat is an independent draw of
+    ``min(n_sequential_samples, len(bag))`` balls, then optional observation flips.
+    """
+    if n_repeats < 1:
+        return []
+
+    bag_arr = np.asarray(bag_of_balls, dtype=object)
+    n_bag = bag_arr.size
+    if n_bag == 0:
+        return [[] for _ in range(n_repeats)]
+
+    n_samples = min(n_sequential_samples, n_bag)
+    # Random permutation per repeat via argsort of uniform noise; take first n_samples
+    perm_idx = np.argsort(np.random.random((n_repeats, n_bag)), axis=1)[:, :n_samples]
+    sampled = bag_arr[perm_idx]
+
+    if ball_observation_error > 0.0:
+        flip = np.random.random((n_repeats, n_samples)) < ball_observation_error
+        flipped = np.where(sampled == "orange", "white", "orange")
+        sampled = np.where(flip, flipped, sampled)
+
+    return sampled.tolist()
+
+
 def observation_string_to_bag(obs_seq: str) -> list[str]:
     """Convert a string of white/orange observations into a full bag.
 
